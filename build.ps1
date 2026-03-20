@@ -22,7 +22,6 @@ $visualStudioRoot = 'C:\Program Files\Microsoft Visual Studio'
 $windowsKitsIncludeRoot = 'C:\Program Files (x86)\Windows Kits\10\Include'
 $quickTileExe = Join-Path $repoRoot ("build\{0}\QuickTile.exe" -f $Configuration)
 $quickTileTestsExe = Join-Path $repoRoot ("build\{0}\QuickTileTests.exe" -f $Configuration)
-$generatedVersionHeader = Join-Path $buildRoot 'generated_version.h'
 
 function Get-VisualStudioInstallationPath {
     param(
@@ -247,25 +246,6 @@ function Get-GitBuildVersion {
     return $hash
 }
 
-function Write-VersionHeader {
-    param(
-        [string]$HeaderPath,
-        [string]$BuildVersion
-    )
-
-    $headerContents = @"
-#pragma once
-
-namespace quicktile {
-
-inline constexpr wchar_t kQuickTileBuildVersion[] = L"$BuildVersion";
-
-}  // namespace quicktile
-"@
-
-    Set-Content -LiteralPath $HeaderPath -Value $headerContents -Encoding ascii
-}
-
 function Stop-QuickTileProcesses {
     $runningProcesses = Get-Process -Name 'QuickTile' -ErrorAction SilentlyContinue
     if ($null -eq $runningProcesses) {
@@ -290,7 +270,6 @@ if (-not (Test-Path -LiteralPath $solutionPath -PathType Leaf)) {
 }
 
 $buildVersion = Get-GitBuildVersion -RepositoryRoot $repoRoot
-Write-VersionHeader -HeaderPath $generatedVersionHeader -BuildVersion $buildVersion
 
 Write-Host "Version $buildVersion"
 Stop-QuickTileProcesses

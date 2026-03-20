@@ -6,6 +6,35 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(QUICKTILE_BUILD_VERSION "unknown")
+find_package(Git QUIET)
+if(Git_FOUND)
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse --short HEAD
+        RESULT_VARIABLE QUICKTILE_GIT_HASH_RESULT
+        OUTPUT_VARIABLE QUICKTILE_GIT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+
+    if(QUICKTILE_GIT_HASH_RESULT EQUAL 0 AND NOT QUICKTILE_GIT_HASH STREQUAL "")
+        set(QUICKTILE_BUILD_VERSION "${QUICKTILE_GIT_HASH}")
+
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" diff --quiet --ignore-submodules HEAD --
+            RESULT_VARIABLE QUICKTILE_GIT_DIFF_RESULT
+            ERROR_QUIET)
+
+        if(QUICKTILE_GIT_DIFF_RESULT EQUAL 1)
+            string(APPEND QUICKTILE_BUILD_VERSION "-dirty")
+        endif()
+    endif()
+endif()
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/generated_version.h.in"
+    "${CMAKE_BINARY_DIR}/generated_version.h"
+    @ONLY)
+
 option(QUICKTILE_ENABLE_MSVC_ANALYZE "Enable MSVC /analyze static analysis" OFF)
 
 function(quicktile_configure_warnings target_name)

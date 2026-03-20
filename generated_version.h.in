@@ -1,0 +1,7 @@
+#pragma once
+
+namespace quicktile {
+
+inline constexpr wchar_t kQuickTileBuildVersion[] = L"@QUICKTILE_BUILD_VERSION@";
+
+}  // namespace quicktile

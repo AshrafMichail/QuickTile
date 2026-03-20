@@ -1,0 +1,37 @@
+name: Build QuickTile
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BUILD_DIR: build
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure CMake
+        run: cmake -S . -B ${{ env.BUILD_DIR }} -A x64
+
+      - name: Build QuickTile
+        run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_CONFIGURATION }} --target QuickTile QuickTileTests
+
+      - name: Run tests
+        run: ctest --test-dir ${{ env.BUILD_DIR }} -C ${{ env.BUILD_CONFIGURATION }} --output-on-failure
+
+      - name: Upload QuickTile executable
+        uses: actions/upload-artifact@v6
+        with:
+          name: QuickTile-windows-x64
+          path: ${{ env.BUILD_DIR }}/Release/QuickTile.exe
+          if-no-files-found: error
