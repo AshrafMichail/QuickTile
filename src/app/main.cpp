@@ -67,6 +67,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 
         app->window = hwnd;
         EventRouter::SetCallbackApp(app);
+        app->dropPreview.SetOwnerWindow(hwnd);
         app->statusOverlay.SetOwnerWindow(hwnd);
         app->topBar.SetOwnerWindow(hwnd);
         app->topBar.SetAppState(app);

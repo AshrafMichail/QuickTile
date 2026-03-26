@@ -97,6 +97,8 @@ set(QUICKTILE_PLATFORM_SOURCES
 )
 
 set(QUICKTILE_UI_SOURCES
+    src/ui/drop_preview_overlay.cpp
+    src/ui/drop_preview_overlay.h
     src/ui/status_overlay.cpp
     src/ui/status_overlay.h
     src/ui/status_overlay_internal.h
@@ -173,6 +175,8 @@ set(QUICKTILE_TEST_SOURCES
     src/platform/shell_integration.h
     src/platform/single_instance.cpp
     src/platform/single_instance.h
+    src/ui/drop_preview_overlay.cpp
+    src/ui/drop_preview_overlay.h
     src/ui/status_overlay.cpp
     src/ui/status_overlay.h
     src/ui/status_overlay_internal.h

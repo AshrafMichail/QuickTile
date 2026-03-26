@@ -348,6 +348,10 @@ float ClampResizeStepRatioValue(float value) {
     return std::clamp(value, 0.01f, 0.25f);
 }
 
+float ClampTopBarOpacityValue(float value) {
+    return std::clamp(value, 0.1f, 1.0f);
+}
+
 struct DoubleSettingDefinition {
     const char* key;
     float Settings::*member;
@@ -355,10 +359,11 @@ struct DoubleSettingDefinition {
     float (*transform)(float value);
 };
 
-constexpr std::array<DoubleSettingDefinition, 3> kDoubleSettings = {{
+constexpr std::array<DoubleSettingDefinition, 4> kDoubleSettings = {{
     {"defaultMainWidthRatio", &Settings::defaultMainWidthRatio, "defaultMainWidthRatio", ClampMainWidthRatioValue},
     {"defaultMasterWidthRatio", &Settings::defaultMainWidthRatio, "defaultMainWidthRatio", ClampMainWidthRatioValue},
     {"resizeStepRatio", &Settings::resizeStepRatio, "resizeStepRatio", ClampResizeStepRatioValue},
+    {"topBarOpacity", &Settings::topBarOpacity, "topBarOpacity", ClampTopBarOpacityValue},
 }};
 
 constexpr std::array<const char*, 4> kLegacyFloatingSettings = {{
@@ -796,6 +801,7 @@ std::string SettingsYaml(const Settings& settings) {
     stream << "changeNotifications: " << (settings.changeNotifications ? "true" : "false") << "\n";
     stream << "topBarEnabled: " << (settings.topBarEnabled ? "true" : "false") << "\n";
     stream << "topBarHeight: " << settings.topBarHeight << "\n";
+    stream << "topBarOpacity: " << settings.topBarOpacity << "\n";
     stream << "topBarWidgets:\n";
     for (TopBarWidgetKind kind : settings.topBarWidgets.order) {
         const auto it = std::find_if(kTopBarWidgetSettings.begin(), kTopBarWidgetSettings.end(), [kind](const TopBarWidgetSettingDefinition& field) {

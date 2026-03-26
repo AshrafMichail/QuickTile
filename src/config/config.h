@@ -22,7 +22,10 @@ namespace quicktile {
 
 constexpr int kDefaultInnerGap = 2;
 constexpr int kDefaultOuterGap = 4;
+constexpr float kDefaultTopBarOpacity = 0.8f;
 constexpr COLORREF kFocusedBorderColor = RGB(0, 120, 215);
+constexpr COLORREF kDropPreviewBorderColor = RGB(255, 140, 0);
+constexpr int kDropPreviewBorderThickness = 4;
 constexpr float kDefaultMainWidthRatio = 0.6f;
 constexpr float kMinMainWidthRatio = 0.2f;
 constexpr float kMaxMainWidthRatio = 0.8f;

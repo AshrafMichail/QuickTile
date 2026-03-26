@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
@@ -86,6 +87,7 @@ public:
             }
 
             UpdateBarText(*bar, app);
+            SetLayeredWindowAttributes(bar->hwnd, 0, BarAlpha(), LWA_ALPHA);
             UpdateWindowBounds(*bar);
             InvalidateRect(bar->hwnd, nullptr, TRUE);
             UpdateWindow(bar->hwnd);
@@ -184,9 +186,22 @@ private:
         return Settings::Defaults().topBarHeight;
     }
 
+    static float DefaultBarOpacity() {
+        return Settings::Defaults().topBarOpacity;
+    }
+
     int BarHeightForMonitor(HMONITOR monitor) const {
         const int configuredHeight = appState_ != nullptr ? appState_->settings.topBarHeight : DefaultBarHeight();
         return WindowGeometry::ScalePixelsForMonitor(monitor, std::clamp(configuredHeight, 1, 256));
+    }
+
+    float BarOpacity() const {
+        const float configuredOpacity = appState_ != nullptr ? appState_->settings.topBarOpacity : DefaultBarOpacity();
+        return std::clamp(configuredOpacity, 0.1f, 1.0f);
+    }
+
+    BYTE BarAlpha() const {
+        return static_cast<BYTE>(std::lround(BarOpacity() * 255.0f));
     }
 
     int FontHeightForMonitor(HMONITOR monitor) const {
@@ -282,7 +297,7 @@ private:
         bar->owner = this;
         bar->monitor = monitor;
         bar->hwnd = CreateWindowExW(
-            WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+            WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED,
             kTopBarClassName,
             kTopBarWindowTitle,
             WS_POPUP,
@@ -298,6 +313,8 @@ private:
             logger_.ErrorLastWin32(L"Failed to create top bar window", GetLastError());
             return nullptr;
         }
+
+        SetLayeredWindowAttributes(bar->hwnd, 0, BarAlpha(), LWA_ALPHA);
 
         BarWindow* rawBar = bar.get();
         bars_.emplace(monitor, std::move(bar));

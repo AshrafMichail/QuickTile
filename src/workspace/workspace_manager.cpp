@@ -111,6 +111,58 @@ int PlannedWindowDropIndex(HMONITOR monitor, const MonitorState& state, const st
     return targetIndex.has_value() ? static_cast<int>(*targetIndex) : static_cast<int>(orderedWindows.size());
 }
 
+bool ResolveDropPoint(HWND droppedWindow, const POINT* explicitDropPoint, POINT& dropPoint) {
+    if (explicitDropPoint != nullptr) {
+        dropPoint = *explicitDropPoint;
+        return true;
+    }
+
+    if (GetCursorPos(&dropPoint) != FALSE) {
+        return true;
+    }
+
+    RECT droppedRect{};
+    if (!GetWindowRect(droppedWindow, &droppedRect)) {
+        return false;
+    }
+
+    dropPoint = LayoutHelpers::RectCenter(droppedRect);
+    return true;
+}
+
+WindowDropTarget ResolveHoveredWindowDropTarget(
+    const std::vector<HWND>& orderedWindows,
+    HWND droppedWindow,
+    const POINT& dropPoint,
+    HMONITOR destinationMonitor) {
+    WindowDropTarget dropTarget;
+    dropTarget.monitor = destinationMonitor;
+
+    for (std::size_t index = 0; index < orderedWindows.size(); ++index) {
+        const HWND candidate = orderedWindows[index];
+        if (candidate == nullptr || candidate == droppedWindow || !IsWindow(candidate)) {
+            continue;
+        }
+
+        RECT candidateRect{};
+        if (!GetWindowRect(candidate, &candidateRect)) {
+            continue;
+        }
+
+        if (!LayoutHelpers::ContainsPoint(candidateRect, dropPoint)) {
+            continue;
+        }
+
+        dropTarget.targetWindow = candidate;
+        dropTarget.previewRect = candidateRect;
+        dropTarget.insertIndex = static_cast<int>(index);
+        dropTarget.replacesWindow = true;
+        return dropTarget;
+    }
+
+    return dropTarget;
+}
+
 void PruneInvalidWindows(std::vector<HWND>& windows) {
     windows.erase(std::remove_if(windows.begin(), windows.end(), [](HWND hwnd) { return !IsWindow(hwnd); }), windows.end());
 }
@@ -272,8 +324,31 @@ MonitorState& WorkspaceManager::ReconcileMonitorState(AppState& app, HMONITOR mo
     return state;
 }
 
+WindowDropTarget WorkspaceManager::ResolveWindowDropTarget(AppState& app, HWND hwnd, HMONITOR destinationMonitor, const POINT* dropPoint) {
+    WindowDropTarget dropTarget;
+    dropTarget.monitor = destinationMonitor;
+    if (hwnd == nullptr || destinationMonitor == nullptr || !IsWindow(hwnd)) {
+        return dropTarget;
+    }
+
+    POINT resolvedDropPoint{};
+    if (!ResolveDropPoint(hwnd, dropPoint, resolvedDropPoint)) {
+        return dropTarget;
+    }
+
+    auto& destinationState = GetOrCreateMonitorState(app, destinationMonitor);
+    auto discovered = WindowManager::EnumerateManagedWindows(app, destinationMonitor);
+    if (!WindowManager::ContainsWindow(discovered, hwnd)) {
+        discovered.push_back(hwnd);
+    }
+
+    const auto ordered = WindowManager::BuildOrderedWindows(destinationMonitor, destinationState.windows, discovered);
+    return ResolveHoveredWindowDropTarget(ordered, hwnd, resolvedDropPoint, destinationMonitor);
+}
+
 void WorkspaceManager::ReorderWindowByDrop(AppState& app, HWND hwnd, HMONITOR sourceMonitor, HMONITOR destinationMonitor) {
     if (destinationMonitor != nullptr) {
+        const WindowDropTarget dropTarget = ResolveWindowDropTarget(app, hwnd, destinationMonitor);
         auto& destinationState = GetOrCreateMonitorState(app, destinationMonitor);
 
         auto discovered = WindowManager::EnumerateManagedWindows(app, destinationMonitor);
@@ -284,8 +359,10 @@ void WorkspaceManager::ReorderWindowByDrop(AppState& app, HWND hwnd, HMONITOR so
         auto ordered = WindowManager::BuildOrderedWindows(destinationMonitor, destinationState.windows, discovered);
         ordered.erase(std::remove(ordered.begin(), ordered.end(), hwnd), ordered.end());
 
-        const int insertIndex = PlannedWindowDropIndex(destinationMonitor, destinationState, ordered, hwnd, app.settings);
-        ordered.insert(ordered.begin() + insertIndex, hwnd);
+        const int insertIndex = dropTarget.replacesWindow
+            ? std::clamp(dropTarget.insertIndex, 0, static_cast<int>(ordered.size()))
+            : PlannedWindowDropIndex(destinationMonitor, destinationState, ordered, hwnd, app.settings);
+        ordered.insert(ordered.begin() + std::clamp(insertIndex, 0, static_cast<int>(ordered.size())), hwnd);
         SyncMonitorStateWindows(destinationState, std::move(ordered), app.settings);
     }
 

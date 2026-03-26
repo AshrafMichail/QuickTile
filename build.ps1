@@ -16,7 +16,6 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSCommandPath
 $buildRoot = Join-Path $repoRoot 'build'
-$solutionPath = Join-Path $repoRoot 'build\QuickTile.sln'
 $vswherePath = 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe'
 $visualStudioRoot = 'C:\Program Files\Microsoft Visual Studio'
 $windowsKitsIncludeRoot = 'C:\Program Files (x86)\Windows Kits\10\Include'
@@ -257,24 +256,17 @@ function Stop-QuickTileProcesses {
 }
 
 $visualStudioInstallPath = Get-VisualStudioInstallationPath -VswherePath $vswherePath -FallbackRoot $visualStudioRoot
-$msbuildPath = Get-FirstExistingPath -Candidates @(
-    (Join-Path $visualStudioInstallPath 'MSBuild\Current\Bin\MSBuild.exe')
-) -Description 'MSBuild'
 $visualStudioCmakePath = Join-Path $visualStudioInstallPath 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
 
 $cmakePath = Get-CMakePath -BuildRoot $buildRoot -FallbackPath $visualStudioCmakePath
 Configure-Build -CMakePath $cmakePath -RepositoryRoot $repoRoot -BuildRoot $buildRoot -EnableAnalyze $Analyze
-
-if (-not (Test-Path -LiteralPath $solutionPath -PathType Leaf)) {
-    throw "QuickTile solution not found at '$solutionPath'."
-}
 
 $buildVersion = Get-GitBuildVersion -RepositoryRoot $repoRoot
 
 Write-Host "Version $buildVersion"
 Stop-QuickTileProcesses
 
-Write-Host "Building QuickTile.sln with $Configuration|$Platform"
+Write-Host "Building QuickTile targets with $Configuration|$Platform"
 if ($Analyze) {
     Write-Host 'MSVC /analyze enabled'
 }
@@ -282,9 +274,9 @@ if ($ClangTidy) {
     Write-Host 'clang-tidy enabled'
 }
 
-& $msbuildPath $solutionPath /m /nologo "/t:QuickTile;QuickTileTests" "/p:Configuration=$Configuration" "/p:Platform=$Platform"
+& $cmakePath --build $buildRoot --config $Configuration --target QuickTile QuickTileTests
 if ($LASTEXITCODE -ne 0) {
-    throw "MSBuild failed with exit code $LASTEXITCODE."
+    throw "CMake build failed with exit code $LASTEXITCODE."
 }
 
 if (-not (Test-Path -LiteralPath $quickTileExe -PathType Leaf)) {

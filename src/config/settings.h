@@ -103,6 +103,7 @@ public:
     int innerGap = kDefaultInnerGap;
     int outerGap = kDefaultOuterGap;
     int topBarHeight = 22;
+    float topBarOpacity = kDefaultTopBarOpacity;
     COLORREF focusedBorderColor = kFocusedBorderColor;
     float defaultMainWidthRatio = kDefaultMainWidthRatio;
     float resizeStepRatio = kResizeStepRatio;

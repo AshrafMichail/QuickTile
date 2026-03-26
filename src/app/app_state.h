@@ -4,6 +4,7 @@
 #include "layout/layout_types.h"
 #include "platform/logger.h"
 #include "config/settings.h"
+#include "ui/drop_preview_overlay.h"
 #include "ui/status_overlay.h"
 #include "ui/top_bar.h"
 
@@ -46,13 +47,14 @@ struct Monitors {
 
 struct AppState {
     explicit AppState(HINSTANCE instanceValue = nullptr)
-        : instance(instanceValue), statusOverlay(instanceValue, logger), topBar(instanceValue, logger) {
+        : instance(instanceValue), dropPreview(instanceValue, logger), statusOverlay(instanceValue, logger), topBar(instanceValue, logger) {
         desktopDisplayNumbers.emplace(L"global", 0);
     }
 
     HINSTANCE instance = nullptr;
     HWND window = nullptr;
     Logger logger;
+    DropPreviewOverlay dropPreview;
     StatusOverlay statusOverlay;
     TopBar topBar;
     bool tilingEnabled = true;

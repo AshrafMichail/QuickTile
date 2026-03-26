@@ -661,6 +661,21 @@ void TestSettingsParsesTopBarHeight() {
     EXPECT_EQ(settings.topBarHeight, 32);
 }
 
+void TestSettingsParsesTopBarOpacity() {
+    Settings settings;
+    EXPECT_TRUE(Settings::LoadFromYaml("version: 1\ntopBarOpacity: 0.6\n", settings));
+    EXPECT_NEAR(settings.topBarOpacity, 0.6f, 0.0001f);
+}
+
+void TestSettingsClampsTopBarOpacity() {
+    Settings settings;
+    EXPECT_TRUE(Settings::LoadFromYaml("version: 1\ntopBarOpacity: 5.0\n", settings));
+    EXPECT_NEAR(settings.topBarOpacity, 1.0f, 0.0001f);
+
+    EXPECT_TRUE(Settings::LoadFromYaml("version: 1\ntopBarOpacity: 0.01\n", settings));
+    EXPECT_NEAR(settings.topBarOpacity, 0.1f, 0.0001f);
+}
+
 void TestSettingsParsesTopBarWidgets() {
     Settings settings;
     const std::string yaml =
@@ -728,6 +743,7 @@ void TestSettingsDefaultsIncludeBuiltInValues() {
     EXPECT_EQ(settings.innerGap, 2);
     EXPECT_EQ(settings.outerGap, 4);
     EXPECT_EQ(settings.topBarHeight, 22);
+    EXPECT_NEAR(settings.topBarOpacity, 0.8f, 0.0001f);
     EXPECT_EQ(settings.defaultLayoutMode, LayoutMode::Spiral);
     EXPECT_EQ(settings.shortcuts.toggleTiling.size(), 1u);
     EXPECT_EQ(settings.shortcuts.toggleTiling[0], std::wstring(L"Alt+T"));
@@ -1027,6 +1043,8 @@ int main() noexcept {
             {"SettingsParsesTopBarEnabled", TestSettingsParsesTopBarEnabled},
             {"SettingsParsesInnerGap", TestSettingsParsesInnerGap},
             {"SettingsParsesTopBarHeight", TestSettingsParsesTopBarHeight},
+            {"SettingsParsesTopBarOpacity", TestSettingsParsesTopBarOpacity},
+            {"SettingsClampsTopBarOpacity", TestSettingsClampsTopBarOpacity},
             {"SettingsParsesTopBarWidgets", TestSettingsParsesTopBarWidgets},
             {"SettingsIgnoresRemovedMemorySettings", TestSettingsIgnoresRemovedMemorySettings},
             {"SettingsParsesLegacyMasterWidthKey", TestSettingsParsesLegacyMasterWidthKey},

@@ -20,6 +20,7 @@ namespace {
 std::deque<EventRouter::PostedEvent> g_postedEvents;
 std::mutex g_postedEventsMutex;
 AppState* g_callbackApp = nullptr;
+bool g_winEventMessageQueued = false;
 
 struct EventBurstState {
     bool refreshDesktopContext = false;
@@ -64,6 +65,30 @@ HMONITOR MonitorForManagedWindow(AppState& app, HWND hwnd) {
     }
 
     return MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+}
+
+void RemoveQueuedEventsForWindow(EventRouter::Action action, HWND hwnd) {
+    g_postedEvents.erase(
+        std::remove_if(
+            g_postedEvents.begin(),
+            g_postedEvents.end(),
+            [action, hwnd](const EventRouter::PostedEvent& postedEvent) {
+                return postedEvent.hwnd == hwnd &&
+                    EventRouter::ClassifyEvent(postedEvent.event, postedEvent.objectId, postedEvent.childId) == action;
+            }),
+        g_postedEvents.end());
+}
+
+void CoalescePostedEvent(const EventRouter::PostedEvent& postedEvent) {
+    const EventRouter::Action action = EventRouter::ClassifyEvent(postedEvent.event, postedEvent.objectId, postedEvent.childId);
+    if (action == EventRouter::Action::LocationChanged) {
+        RemoveQueuedEventsForWindow(EventRouter::Action::LocationChanged, postedEvent.hwnd);
+        return;
+    }
+
+    if (action == EventRouter::Action::MoveSizeEnd) {
+        RemoveQueuedEventsForWindow(EventRouter::Action::LocationChanged, postedEvent.hwnd);
+    }
 }
 
 }  // namespace
@@ -136,8 +161,31 @@ void RefreshFocusBorder(AppState& app, HWND hwnd) {
     FocusTracker::UpdateFocusedWindowBorder(app, managedWindow);
 }
 
+void RefreshDropPreview(AppState& app, HWND hwnd) {
+    if (hwnd == nullptr || !WindowManager::IsManagedWindow(app, hwnd)) {
+        app.dropPreview.Hide();
+        return;
+    }
+
+    POINT cursorPosition{};
+    const POINT* dropPoint = GetCursorPos(&cursorPosition) != FALSE ? &cursorPosition : nullptr;
+    const HMONITOR destinationMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    const WindowDropTarget dropTarget = WorkspaceManager::ResolveWindowDropTarget(app, hwnd, destinationMonitor, dropPoint);
+    if (!dropTarget.replacesWindow) {
+        app.dropPreview.Hide();
+        return;
+    }
+
+    if (app.dropPreview.IsShowingBounds(dropTarget.previewRect)) {
+        return;
+    }
+
+    app.dropPreview.ShowReplacement(dropTarget.previewRect);
+}
+
 void HandleMoveSizeStart(AppState& app, HWND hwnd) {
     app.windowState.moveSize = hwnd;
+    app.dropPreview.Hide();
     if (hwnd != nullptr) {
         GetWindowRect(hwnd, &app.windowState.moveSizeStartRect);
     }
@@ -164,6 +212,7 @@ void HandleMoveSizeEnd(AppState& app, HWND hwnd, EventBurstState& burstState) {
     }
     app.windowState.moveSize = nullptr;
     app.monitorState.moveSizeOriginMonitor = nullptr;
+    app.dropPreview.Hide();
 
     if (!handledResize && hwnd != nullptr && WindowManager::IsManagedWindow(app, hwnd)) {
         WindowManager::ReorderWindowByDrop(app, hwnd, sourceMonitor, monitor);
@@ -230,6 +279,14 @@ void ApplyPostedEvent(AppState& app, const EventRouter::PostedEvent& postedEvent
         return;
     case EventRouter::Action::LocationChanged:
         if (postedEvent.hwnd == nullptr || !WindowManager::IsManagedWindow(app, postedEvent.hwnd)) {
+            if (postedEvent.hwnd == app.windowState.moveSize) {
+                app.dropPreview.Hide();
+            }
+            return;
+        }
+
+        if (postedEvent.hwnd == app.windowState.moveSize) {
+            RefreshDropPreview(app, postedEvent.hwnd);
             return;
         }
 
@@ -275,6 +332,7 @@ void EventRouter::DrainPostedEvents(AppState& app) {
     {
         std::lock_guard<std::mutex> lock(g_postedEventsMutex);
         pendingEvents.swap(g_postedEvents);
+        g_winEventMessageQueued = false;
     }
 
     EventBurstState burstState;
@@ -290,17 +348,26 @@ void CALLBACK EventRouter::WinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd, L
         return;
     }
 
-    if (ClassifyEvent(event, objectId, childId) == Action::Ignore) {
+    const Action action = ClassifyEvent(event, objectId, childId);
+    if (action == Action::Ignore) {
         return;
     }
 
+    const PostedEvent postedEvent{event, hwnd, objectId, childId};
     bool posted = false;
     {
         std::lock_guard<std::mutex> lock(g_postedEventsMutex);
-        g_postedEvents.push_back(PostedEvent{event, hwnd, objectId, childId});
-        posted = PostMessageW(g_callbackApp->window, kQueuedWinEventMessage, 0, 0) != FALSE;
-        if (!posted) {
-            g_postedEvents.pop_back();
+        CoalescePostedEvent(postedEvent);
+        g_postedEvents.push_back(postedEvent);
+        if (!g_winEventMessageQueued) {
+            posted = PostMessageW(g_callbackApp->window, kQueuedWinEventMessage, 0, 0) != FALSE;
+            if (posted) {
+                g_winEventMessageQueued = true;
+            } else {
+                g_postedEvents.pop_back();
+            }
+        } else {
+            posted = true;
         }
     }
 
