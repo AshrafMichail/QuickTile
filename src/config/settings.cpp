@@ -340,16 +340,12 @@ constexpr std::array<TopBarWidgetSettingDefinition, 5> kTopBarWidgetSettings = {
     {"workspaces", TopBarWidgetKind::Workspaces, &TopBarWidgetSettings::workspaces, "workspaces"},
 }};
 
-float ClampMainWidthRatioValue(float value) {
-    return LayoutPolicy::ClampMainWidthRatio(value);
-}
-
 float ClampResizeStepRatioValue(float value) {
     return std::clamp(value, 0.01f, 0.25f);
 }
 
 float ClampTopBarOpacityValue(float value) {
-    return std::clamp(value, 0.1f, 1.0f);
+    return std::clamp(value, 0.5f, 1.0f);
 }
 
 struct DoubleSettingDefinition {
@@ -359,9 +355,7 @@ struct DoubleSettingDefinition {
     float (*transform)(float value);
 };
 
-constexpr std::array<DoubleSettingDefinition, 4> kDoubleSettings = {{
-    {"defaultMainWidthRatio", &Settings::defaultMainWidthRatio, "defaultMainWidthRatio", ClampMainWidthRatioValue},
-    {"defaultMasterWidthRatio", &Settings::defaultMainWidthRatio, "defaultMainWidthRatio", ClampMainWidthRatioValue},
+constexpr std::array<DoubleSettingDefinition, 2> kDoubleSettings = {{
     {"resizeStepRatio", &Settings::resizeStepRatio, "resizeStepRatio", ClampResizeStepRatioValue},
     {"topBarOpacity", &Settings::topBarOpacity, "topBarOpacity", ClampTopBarOpacityValue},
 }};
@@ -825,7 +819,6 @@ std::string SettingsYaml(const Settings& settings) {
     stream << "focusedBorderColor: \"" << colorBuffer << "\"\n";
     stream << "innerGap: " << settings.innerGap << "\n";
     stream << "outerGap: " << settings.outerGap << "\n";
-    stream << "defaultMainWidthRatio: " << settings.defaultMainWidthRatio << "\n";
     stream << "resizeStepRatio: " << settings.resizeStepRatio << "\n";
     if (!settings.windowRules.empty()) {
         stream << "windowRules:\n";

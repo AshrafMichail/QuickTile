@@ -61,7 +61,6 @@ defaultLayoutType: "spiral"
 focusedBorderColor: "#0078D7"
 innerGap: 2
 outerGap: 4
-defaultMainWidthRatio: 0.6
 resizeStepRatio: 0.05
 windowRules:
   - action: "float"
@@ -105,7 +104,6 @@ Field meanings:
 - `focusedBorderColor`: border color applied to the currently focused managed window.
 - `innerGap`: inner gap in pixels between tiled windows.
 - `outerGap`: outer gap in pixels between tiled windows and the monitor work area edges.
-- `defaultMainWidthRatio`: width of the main pane as a fraction of the monitor work area.
 - `resizeStepRatio`: amount used by the resize hotkeys when adjusting the main split or stack weights.
 - `windowRules`: ordered exact-match rules with the `float` action.
 - `launchShortcuts`: launcher entries that register global shortcuts for starting apps or URLs.

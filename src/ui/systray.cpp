@@ -184,25 +184,12 @@ void ShowShortcutHelpOverlay(AppState& app) {
         options);
 }
 
-void ApplyLoadedSettings(AppState& app, const Settings& previousSettings, const Settings& newSettings) {
+void ApplyLoadedSettings(AppState& app, const Settings&, const Settings& newSettings) {
     app.settings = newSettings;
     app.tilingEnabled = newSettings.tilingEnabled;
     ShellIntegration::SetAutoStartEnabled(newSettings.autoStart);
     Shortcuts::UnregisterHotkeys(app, app.window);
     Shortcuts::RegisterHotkeys(app, app.window);
-
-    const float oldDefaultMainWidthRatio = std::clamp(
-        previousSettings.defaultMainWidthRatio,
-        kMinMainWidthRatio,
-        kMaxMainWidthRatio);
-    const float newDefaultMainWidthRatio = std::clamp(
-        newSettings.defaultMainWidthRatio,
-        kMinMainWidthRatio,
-        kMaxMainWidthRatio);
-
-    for (auto& [_, state] : WorkspaceManager::WorkspaceMonitors(app)) {
-        LayoutEngine::RetargetDefaultMainWidthRatio(state, oldDefaultMainWidthRatio, newDefaultMainWidthRatio);
-    }
 
     WindowManager::RefreshSettingsEffects(app);
     ShellIntegration::UpdateTrayIcon(app, app.window);

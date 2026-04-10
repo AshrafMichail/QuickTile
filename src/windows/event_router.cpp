@@ -205,7 +205,7 @@ void HandleMoveSizeEnd(AppState& app, HWND hwnd, EventBurstState& burstState) {
                 hwnd,
                 monitor,
                 app.windowState.moveSizeStartRect,
-                app.settings.defaultMainWidthRatio,
+                kDefaultMainWidthRatio,
                 WindowGeometry::ScalePixelsForMonitor(monitor, std::clamp(app.settings.innerGap, 0, 256)),
                 WindowGeometry::ScalePixelsForMonitor(monitor, std::clamp(app.settings.outerGap, 0, 256)));
         }

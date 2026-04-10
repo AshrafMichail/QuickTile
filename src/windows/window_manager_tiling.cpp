@@ -14,8 +14,8 @@ namespace quicktile {
 
 namespace {
 
-float DefaultMainWidthRatio(const Settings& settings) {
-    return LayoutEngine::ClampMainWidthRatio(settings.defaultMainWidthRatio);
+float DefaultMainWidthRatio() {
+    return kDefaultMainWidthRatio;
 }
 
 LayoutMode DefaultLayoutMode(const Settings& settings) {
@@ -35,7 +35,7 @@ int OuterGap(HMONITOR monitor, const Settings& settings) {
 }
 
 bool ApplyWeightedResizePlan(HMONITOR monitor, MonitorState& state, const WorkspaceModel::ResizePlan& plan, const Settings& settings) {
-    const float defaultMainWidthRatio = DefaultMainWidthRatio(settings);
+    const float defaultMainWidthRatio = DefaultMainWidthRatio();
     const float resizeStepRatio = ResizeStepRatio(settings);
     const int innerGap = InnerGap(monitor, settings);
     const int outerGap = OuterGap(monitor, settings);
@@ -85,8 +85,8 @@ bool ApplyWeightedResizePlan(HMONITOR monitor, MonitorState& state, const Worksp
     return false;
 }
 
-bool ApplySpiralResizePlan(MonitorState& state, const WorkspaceModel::ResizePlan& plan, const Settings& settings) {
-    const float defaultMainWidthRatio = DefaultMainWidthRatio(settings);
+bool ApplySpiralResizePlan(MonitorState& state, const WorkspaceModel::ResizePlan& plan, const Settings&) {
+    const float defaultMainWidthRatio = DefaultMainWidthRatio();
     LayoutEngine::EnsureMonitorStateInitialized(state, defaultMainWidthRatio);
 
     if (plan.targetIndex == 0) {
@@ -217,7 +217,7 @@ LayoutChangeResult WindowManager::SetActiveMonitorLayout(AppState& app, LayoutMo
         return result;
     }
 
-    LayoutEngine::SetMonitorLayoutMode(state, layoutMode, DefaultMainWidthRatio(app.settings));
+    LayoutEngine::SetMonitorLayoutMode(state, layoutMode, DefaultMainWidthRatio());
 
     RefreshSettingsEffects(app);
     result.handled = true;

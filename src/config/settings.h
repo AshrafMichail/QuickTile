@@ -105,7 +105,6 @@ public:
     int topBarHeight = 22;
     float topBarOpacity = kDefaultTopBarOpacity;
     COLORREF focusedBorderColor = kFocusedBorderColor;
-    float defaultMainWidthRatio = kDefaultMainWidthRatio;
     float resizeStepRatio = kResizeStepRatio;
     TopBarWidgetSettings topBarWidgets;
     std::vector<WindowRuleSetting> windowRules;

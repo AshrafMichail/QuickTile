@@ -22,8 +22,8 @@ bool IsInvalidDetectedDesktopKey(std::wstring_view desktopKey) {
     return desktopKey.empty() || desktopKey == L"{00000000-0000-0000-0000-000000000000}";
 }
 
-float DefaultMainWidthRatio(const Settings& settings) {
-    return LayoutEngine::ClampMainWidthRatio(settings.defaultMainWidthRatio);
+float DefaultMainWidthRatio() {
+    return kDefaultMainWidthRatio;
 }
 
 std::vector<HWND> PreserveWorkspaceWindows(HMONITOR monitor, const std::vector<HWND>& previous) {
@@ -65,13 +65,13 @@ std::vector<HWND> PreserveWorkspaceWindows(HMONITOR monitor, const std::vector<H
     return preserved;
 }
 
-void SyncMonitorStateWindows(MonitorState& state, std::vector<HWND> orderedWindows, const Settings& settings) {
+void SyncMonitorStateWindows(MonitorState& state, std::vector<HWND> orderedWindows, const Settings&) {
     if (state.layoutMode == LayoutMode::Floating) {
         state.windows = std::move(orderedWindows);
         return;
     }
 
-    LayoutEngine::SyncMonitorWindows(state, std::move(orderedWindows), DefaultMainWidthRatio(settings));
+    LayoutEngine::SyncMonitorWindows(state, std::move(orderedWindows), DefaultMainWidthRatio());
 }
 
 int PlannedWindowDropIndex(HMONITOR monitor, const MonitorState& state, const std::vector<HWND>& orderedWindows, HWND droppedWindow, const Settings& settings) {
@@ -92,7 +92,7 @@ int PlannedWindowDropIndex(HMONITOR monitor, const MonitorState& state, const st
         return static_cast<int>(orderedWindows.size());
     }
 
-    LayoutEngine::SyncMonitorWindows(plannedState, orderedWindows, DefaultMainWidthRatio(settings));
+    LayoutEngine::SyncMonitorWindows(plannedState, orderedWindows, DefaultMainWidthRatio());
 
     WorkspaceModel::MonitorData monitorData;
     monitorData.handle = monitor;
@@ -184,7 +184,7 @@ const DesktopWorkspaceState* FindActiveDesktopWorkspaceState(const AppState& app
 
 void EnsureCurrentWorkspaceInitialized(AppState& app) {
     for (auto& [_, state] : app.monitorState.activeWorkspaceMonitors) {
-        LayoutEngine::EnsureMonitorStateInitialized(state, DefaultMainWidthRatio(app.settings));
+        LayoutEngine::EnsureMonitorStateInitialized(state, DefaultMainWidthRatio());
     }
 }
 
@@ -306,7 +306,7 @@ MonitorState& WorkspaceManager::GetOrCreateMonitorState(AppState& app, HMONITOR 
     auto [iterator, _] = workspace.try_emplace(monitor);
     auto& state = iterator->second;
 
-    LayoutEngine::EnsureMonitorStateInitialized(state, DefaultMainWidthRatio(app.settings));
+    LayoutEngine::EnsureMonitorStateInitialized(state, DefaultMainWidthRatio());
     return state;
 }
 

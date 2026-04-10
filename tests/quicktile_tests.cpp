@@ -29,6 +29,7 @@ using quicktile::DirectionResize;
 using quicktile::EventRouter;
 using quicktile::LayoutEngine;
 using quicktile::LayoutMode;
+using quicktile::kDefaultMainWidthRatio;
 using quicktile::MonitorState;
 using quicktile::ShortcutBinding;
 using quicktile::WindowExceptionMatchSource;
@@ -409,24 +410,21 @@ void TestLayoutEngineWeightsAndSync() {
     EXPECT_NEAR(weights[0], 0.4117647f, 0.0001f);
     EXPECT_NEAR(weights[1], 0.5882352f, 0.0001f);
 
-    AppState app;
-    app.settings.defaultMainWidthRatio = 0.65f;
-
     MonitorState state;
     state.windows = previousWindows;
-    LayoutEngine::RestoreMonitorSplitState(state, quicktile::LayoutMode::MainStack, 0.0f, previousWeights, app.settings.defaultMainWidthRatio);
-    LayoutEngine::SyncMonitorWindows(state, ordered, app.settings.defaultMainWidthRatio);
+    LayoutEngine::RestoreMonitorSplitState(state, quicktile::LayoutMode::MainStack, 0.0f, previousWeights, kDefaultMainWidthRatio);
+    LayoutEngine::SyncMonitorWindows(state, ordered, kDefaultMainWidthRatio);
     EXPECT_EQ(state.windows.size(), 3u);
     EXPECT_EQ(state.windows[1], FakeHandle<HWND>(3));
-    EXPECT_NEAR(state.mainWidthRatio, 0.65f, 0.0001f);
+    EXPECT_NEAR(state.mainWidthRatio, kDefaultMainWidthRatio, 0.0001f);
         const LayoutEngine::MonitorSplitStateData syncedState = LayoutEngine::ExportMonitorSplitState(state);
     EXPECT_EQ(syncedState.splitWeights.size(), 2u);
     EXPECT_NEAR(syncedState.splitWeights.at(0), 0.4117647f, 0.0001f);
     EXPECT_NEAR(syncedState.splitWeights.at(1), 0.5882352f, 0.0001f);
 
     MonitorState restoredState;
-    LayoutEngine::RestoreMonitorSplitState(restoredState, quicktile::LayoutMode::VerticalColumns, 0.65f, {0.2f, 0.5f, 0.3f}, app.settings.defaultMainWidthRatio);
-    LayoutEngine::SyncMonitorWindows(restoredState, {FakeHandle<HWND>(11), FakeHandle<HWND>(12), FakeHandle<HWND>(13)}, app.settings.defaultMainWidthRatio);
+    LayoutEngine::RestoreMonitorSplitState(restoredState, quicktile::LayoutMode::VerticalColumns, 0.65f, {0.2f, 0.5f, 0.3f}, kDefaultMainWidthRatio);
+    LayoutEngine::SyncMonitorWindows(restoredState, {FakeHandle<HWND>(11), FakeHandle<HWND>(12), FakeHandle<HWND>(13)}, kDefaultMainWidthRatio);
     const LayoutEngine::MonitorSplitStateData restoredSplitState = LayoutEngine::ExportMonitorSplitState(restoredState);
     EXPECT_EQ(restoredSplitState.splitWeights.size(), 3u);
     EXPECT_NEAR(restoredSplitState.splitWeights.at(0), 0.2f, 0.0001f);
@@ -434,8 +432,8 @@ void TestLayoutEngineWeightsAndSync() {
     EXPECT_NEAR(restoredSplitState.splitWeights.at(2), 0.3f, 0.0001f);
 
     MonitorState expandedColumnsState;
-    LayoutEngine::RestoreMonitorSplitState(expandedColumnsState, quicktile::LayoutMode::VerticalColumns, 0.65f, {0.2f, 0.5f, 0.3f}, app.settings.defaultMainWidthRatio);
-    LayoutEngine::SyncMonitorWindows(expandedColumnsState, {FakeHandle<HWND>(21), FakeHandle<HWND>(22), FakeHandle<HWND>(23), FakeHandle<HWND>(24)}, app.settings.defaultMainWidthRatio);
+    LayoutEngine::RestoreMonitorSplitState(expandedColumnsState, quicktile::LayoutMode::VerticalColumns, 0.65f, {0.2f, 0.5f, 0.3f}, kDefaultMainWidthRatio);
+    LayoutEngine::SyncMonitorWindows(expandedColumnsState, {FakeHandle<HWND>(21), FakeHandle<HWND>(22), FakeHandle<HWND>(23), FakeHandle<HWND>(24)}, kDefaultMainWidthRatio);
     const LayoutEngine::MonitorSplitStateData expandedColumnsSplitState = LayoutEngine::ExportMonitorSplitState(expandedColumnsState);
     EXPECT_EQ(expandedColumnsSplitState.splitWeights.size(), 4u);
     EXPECT_NEAR(expandedColumnsSplitState.splitWeights.at(0), 0.1f, 0.0001f);
@@ -477,7 +475,7 @@ void TestWindowManagerVirtualDesktopContextSwap() {
     otherDesktopMonitorState.layoutMode = LayoutMode::VerticalColumns;
     otherDesktopMonitorState.mainWidthRatio = 0.47f;
     otherDesktopMonitorState.windows = {FakeHandle<HWND>(20), FakeHandle<HWND>(21)};
-    LayoutEngine::RestoreMonitorSplitState(otherDesktopMonitorState, quicktile::LayoutMode::MainStack, otherDesktopMonitorState.mainWidthRatio, {}, state.settings.defaultMainWidthRatio);
+    LayoutEngine::RestoreMonitorSplitState(otherDesktopMonitorState, quicktile::LayoutMode::MainStack, otherDesktopMonitorState.mainWidthRatio, {}, kDefaultMainWidthRatio);
     otherDesktopMonitorState.layoutMode = LayoutMode::VerticalColumns;
     state.monitorState.workspaceStatesByDesktop[L"desktop-b"].workspaces[0].emplace(FakeHandle<HMONITOR>(101), otherDesktopMonitorState);
 
@@ -507,7 +505,7 @@ void TestWindowManagerInitializesMonitorWorkspaces() {
 
     EXPECT_EQ(WorkspaceManager::CurrentWorkspaceIndex(state), 0);
     EXPECT_EQ(monitorState.layoutMode, state.settings.defaultLayoutMode);
-    EXPECT_NEAR(monitorState.mainWidthRatio, state.settings.defaultMainWidthRatio, 0.0001f);
+    EXPECT_NEAR(monitorState.mainWidthRatio, kDefaultMainWidthRatio, 0.0001f);
 }
 
 void TestWorkspaceModelDistributeLengths() {
@@ -673,7 +671,7 @@ void TestSettingsClampsTopBarOpacity() {
     EXPECT_NEAR(settings.topBarOpacity, 1.0f, 0.0001f);
 
     EXPECT_TRUE(Settings::LoadFromYaml("version: 1\ntopBarOpacity: 0.01\n", settings));
-    EXPECT_NEAR(settings.topBarOpacity, 0.1f, 0.0001f);
+    EXPECT_NEAR(settings.topBarOpacity, 0.5f, 0.0001f);
 }
 
 void TestSettingsParsesTopBarWidgets() {
@@ -706,10 +704,10 @@ void TestSettingsIgnoresRemovedMemorySettings() {
     EXPECT_TRUE(Settings::LoadFromYaml("version: 1\nrememberWindowPlacements: false\nrememberMonitorSplits: true\n", settings));
 }
 
-void TestSettingsParsesLegacyMasterWidthKey() {
+void TestSettingsIgnoresRemovedMainWidthKeys() {
     Settings settings;
-    EXPECT_TRUE(Settings::LoadFromYaml("version: 1\ndefaultMasterWidthRatio: 0.65\n", settings));
-    EXPECT_NEAR(settings.defaultMainWidthRatio, 0.65f, 0.0001f);
+    EXPECT_TRUE(Settings::LoadFromYaml("version: 1\ndefaultMainWidthRatio: 0.65\ndefaultMasterWidthRatio: 0.35\ninnerGap: 12\n", settings));
+    EXPECT_EQ(settings.innerGap, 12);
 }
 
 void TestSettingsParsesDefaultLayoutType() {
@@ -1047,7 +1045,7 @@ int main() noexcept {
             {"SettingsClampsTopBarOpacity", TestSettingsClampsTopBarOpacity},
             {"SettingsParsesTopBarWidgets", TestSettingsParsesTopBarWidgets},
             {"SettingsIgnoresRemovedMemorySettings", TestSettingsIgnoresRemovedMemorySettings},
-            {"SettingsParsesLegacyMasterWidthKey", TestSettingsParsesLegacyMasterWidthKey},
+            {"SettingsIgnoresRemovedMainWidthKeys", TestSettingsIgnoresRemovedMainWidthKeys},
             {"SettingsParsesDefaultLayoutType", TestSettingsParsesDefaultLayoutType},
             {"SettingsDefaultsIncludeBuiltInValues", TestSettingsDefaultsIncludeBuiltInValues},
             {"SettingsReportsYamlErrors", TestSettingsReportsYamlErrors},
