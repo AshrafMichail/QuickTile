@@ -116,8 +116,33 @@ public:
 private:
     struct BarWindow {
         struct TextRun {
+            enum class Kind {
+                Text,
+                LayoutIndicator,
+            };
+
+            static TextRun MakeText(std::wstring value, COLORREF valueColor = RGB(236, 240, 244)) {
+                TextRun run;
+                run.kind = Kind::Text;
+                run.text = std::move(value);
+                run.color = valueColor;
+                return run;
+            }
+
+            static TextRun MakeLayoutIndicator(LayoutMode modeValue, int width, COLORREF valueColor = RGB(236, 240, 244)) {
+                TextRun run;
+                run.kind = Kind::LayoutIndicator;
+                run.color = valueColor;
+                run.layoutMode = modeValue;
+                run.advanceWidth = width;
+                return run;
+            }
+
+            Kind kind = Kind::Text;
             std::wstring text;
             COLORREF color = RGB(236, 240, 244);
+            LayoutMode layoutMode = DefaultLayoutMode();
+            int advanceWidth = 0;
         };
 
         Impl* owner = nullptr;
@@ -358,25 +383,28 @@ private:
         bars_.clear();
     }
 
-    static std::wstring LayoutLabel(const AppState& app, HMONITOR monitor) {
+    static LayoutMode LayoutModeForMonitor(const AppState& app, HMONITOR monitor) {
         const auto& workspace = WorkspaceManager::WorkspaceMonitors(app);
         const auto iterator = workspace.find(monitor);
-        const wchar_t* displayName = LayoutModeDisplayName(app.settings.defaultLayoutMode);
         if (iterator != workspace.end()) {
-            displayName = LayoutModeDisplayName(iterator->second.layoutMode);
+            return iterator->second.layoutMode;
         }
 
-        const std::wstring label(displayName);
-        return label.empty() ? std::wstring() : label.substr(0, 1);
+        return app.settings.defaultLayoutMode;
     }
 
     static int CurrentWorkspaceIndex(const AppState& app) {
         return WorkspaceManager::CurrentWorkspaceIndex(app);
     }
 
+    int LayoutIndicatorWidth(HMONITOR monitor) const {
+        const int barHeight = BarHeightForMonitor(monitor);
+        return std::max(10, (barHeight * 4) / 5);
+    }
+
     static void AppendSeparator(std::vector<BarWindow::TextRun>& region) {
         if (!region.empty()) {
-            region.push_back(BarWindow::TextRun{L"  ", kTextColor});
+            region.push_back(BarWindow::TextRun::MakeText(L"  ", kTextColor));
         }
     }
 
@@ -386,18 +414,23 @@ private:
         }
 
         AppendSeparator(region);
-        region.push_back(BarWindow::TextRun{text, color});
+        region.push_back(BarWindow::TextRun::MakeText(text, color));
+    }
+
+    static void AppendRegionLayoutIndicator(std::vector<BarWindow::TextRun>& region, LayoutMode layoutMode, int width, COLORREF color = kTextColor) {
+        AppendSeparator(region);
+        region.push_back(BarWindow::TextRun::MakeLayoutIndicator(layoutMode, width, color));
     }
 
     static void AppendWorkspaceStrip(std::vector<BarWindow::TextRun>& region, int currentWorkspaceIndex) {
         AppendSeparator(region);
         for (int workspaceIndex = 0; workspaceIndex < kWorkspaceCount; ++workspaceIndex) {
             if (workspaceIndex != 0) {
-                region.push_back(BarWindow::TextRun{L" ", kDimTextColor});
+                region.push_back(BarWindow::TextRun::MakeText(L" ", kDimTextColor));
             }
 
             const COLORREF color = workspaceIndex == currentWorkspaceIndex ? kTextColor : kDimTextColor;
-            region.push_back(BarWindow::TextRun{std::to_wstring(workspaceIndex + 1), color});
+            region.push_back(BarWindow::TextRun::MakeText(std::to_wstring(workspaceIndex + 1), color));
         }
     }
 
@@ -413,6 +446,22 @@ private:
             return;
         case TopBarWidgetPosition::Right:
             AppendRegionText(bar.rightRuns, text, color);
+            return;
+        }
+    }
+
+    void AppendLayoutIndicatorForPosition(BarWindow& bar, TopBarWidgetPosition position, LayoutMode layoutMode, COLORREF color = kTextColor) const {
+        switch (position) {
+        case TopBarWidgetPosition::Disabled:
+            return;
+        case TopBarWidgetPosition::Left:
+            AppendRegionLayoutIndicator(bar.leftRuns, layoutMode, LayoutIndicatorWidth(bar.monitor), color);
+            return;
+        case TopBarWidgetPosition::Center:
+            AppendRegionLayoutIndicator(bar.centerRuns, layoutMode, LayoutIndicatorWidth(bar.monitor), color);
+            return;
+        case TopBarWidgetPosition::Right:
+            AppendRegionLayoutIndicator(bar.rightRuns, layoutMode, LayoutIndicatorWidth(bar.monitor), color);
             return;
         }
     }
@@ -461,7 +510,7 @@ private:
             AppendForPosition(bar, app.settings.topBarWidgets.appName, FocusedAppLabel());
             return;
         case TopBarWidgetKind::LayoutType:
-            AppendForPosition(bar, app.settings.topBarWidgets.layoutType, LayoutLabel(app, bar.monitor));
+            AppendLayoutIndicatorForPosition(bar, app.settings.topBarWidgets.layoutType, LayoutModeForMonitor(app, bar.monitor));
             return;
         case TopBarWidgetKind::Workspaces:
             AppendWorkspacesForPosition(bar, app.settings.topBarWidgets.workspaces, CurrentWorkspaceIndex(app));
@@ -530,12 +579,111 @@ private:
         return size.cx;
     }
 
+    static int MeasureRunWidth(HDC dc, const BarWindow::TextRun& run) {
+        if (run.kind == BarWindow::TextRun::Kind::LayoutIndicator) {
+            return run.advanceWidth;
+        }
+
+        return MeasureTextWidth(dc, run.text);
+    }
+
     static int MeasureRunsWidth(HDC dc, const std::vector<BarWindow::TextRun>& runs) {
         int width = 0;
         for (const BarWindow::TextRun& run : runs) {
-            width += MeasureTextWidth(dc, run.text);
+            width += MeasureRunWidth(dc, run);
         }
         return width;
+    }
+
+    static RECT CenteredIndicatorRect(const RECT& rect, int advanceWidth) {
+        const int availableHeight = std::max(6, static_cast<int>(rect.bottom - rect.top) - 8);
+        const int width = std::max(8, std::min(advanceWidth, availableHeight + std::max(2, availableHeight / 3)));
+        const int height = std::max(6, availableHeight);
+        const int left = rect.left + std::max(0, (advanceWidth - width) / 2);
+        const int top = rect.top + std::max(0, (static_cast<int>(rect.bottom - rect.top) - height) / 2);
+        return RECT{left, top, left + width, top + height};
+    }
+
+    static void DrawRectOutline(HDC dc, const RECT& rect) {
+        Rectangle(dc, rect.left, rect.top, rect.right, rect.bottom);
+    }
+
+    static void DrawLine(HDC dc, int x1, int y1, int x2, int y2) {
+        MoveToEx(dc, x1, y1, nullptr);
+        LineTo(dc, x2, y2);
+    }
+
+    static void DrawLayoutIndicator(HDC dc, const RECT& rect, const BarWindow::TextRun& run) {
+        const RECT iconRect = CenteredIndicatorRect(rect, run.advanceWidth);
+        const int width = std::max(1, static_cast<int>(iconRect.right - iconRect.left));
+        const int height = std::max(1, static_cast<int>(iconRect.bottom - iconRect.top));
+
+        const HPEN pen = CreatePen(PS_SOLID, 1, run.color);
+        const HGDIOBJ oldPen = SelectObject(dc, pen);
+        const HGDIOBJ oldBrush = SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
+
+        switch (run.layoutMode) {
+        case LayoutMode::MainStack: {
+            DrawRectOutline(dc, iconRect);
+            const int splitX = iconRect.left + (width * 3) / 5;
+            const int stackSplitY = iconRect.top + height / 2;
+            DrawLine(dc, splitX, iconRect.top, splitX, iconRect.bottom);
+            DrawLine(dc, splitX, stackSplitY, iconRect.right, stackSplitY);
+            break;
+        }
+        case LayoutMode::VerticalColumns: {
+            DrawRectOutline(dc, iconRect);
+            const int splitOneX = iconRect.left + width / 3;
+            const int splitTwoX = iconRect.left + (width * 2) / 3;
+            DrawLine(dc, splitOneX, iconRect.top, splitOneX, iconRect.bottom);
+            DrawLine(dc, splitTwoX, iconRect.top, splitTwoX, iconRect.bottom);
+            break;
+        }
+        case LayoutMode::Monocle: {
+            DrawRectOutline(dc, iconRect);
+            const RECT innerRect{
+                iconRect.left + 2,
+                iconRect.top + 2,
+                static_cast<LONG>(std::max(static_cast<int>(iconRect.left) + 3, static_cast<int>(iconRect.right) - 2)),
+                static_cast<LONG>(std::max(static_cast<int>(iconRect.top) + 3, static_cast<int>(iconRect.bottom) - 2)),
+            };
+            if (innerRect.right - innerRect.left >= 3 && innerRect.bottom - innerRect.top >= 3) {
+                DrawRectOutline(dc, innerRect);
+            }
+            break;
+        }
+        case LayoutMode::Floating: {
+            const RECT backRect{
+                iconRect.left,
+                iconRect.top,
+                static_cast<LONG>(std::max(static_cast<int>(iconRect.left) + 4, static_cast<int>(iconRect.right) - 4)),
+                static_cast<LONG>(std::max(static_cast<int>(iconRect.top) + 4, static_cast<int>(iconRect.bottom) - 3)),
+            };
+            const RECT frontRect{
+                std::min(iconRect.right - 3, iconRect.left + 4),
+                std::min(iconRect.bottom - 3, iconRect.top + 3),
+                iconRect.right,
+                iconRect.bottom,
+            };
+            DrawRectOutline(dc, backRect);
+            DrawRectOutline(dc, frontRect);
+            break;
+        }
+        case LayoutMode::Spiral: {
+            DrawRectOutline(dc, iconRect);
+            const int splitOuterX = iconRect.left + width / 2;
+            const int splitOuterY = iconRect.top + height / 2;
+            const int splitInnerX = splitOuterX + (static_cast<int>(iconRect.right) - splitOuterX) / 2;
+            DrawLine(dc, splitOuterX, iconRect.top, splitOuterX, iconRect.bottom);
+            DrawLine(dc, splitOuterX, splitOuterY, iconRect.right, splitOuterY);
+            DrawLine(dc, splitInnerX, splitOuterY, splitInnerX, iconRect.bottom);
+            break;
+        }
+        }
+
+        SelectObject(dc, oldBrush);
+        SelectObject(dc, oldPen);
+        DeleteObject(pen);
     }
 
     static void DrawRuns(HDC dc, const RECT& rect, const std::vector<BarWindow::TextRun>& runs, UINT alignment) {
@@ -559,13 +707,22 @@ private:
         const int textHeight = static_cast<int>(textMetrics.tmHeight);
         const int y = static_cast<int>(rect.top) + std::max(0, (rectHeight - textHeight) / 2);
         for (const BarWindow::TextRun& run : runs) {
+            if (run.kind == BarWindow::TextRun::Kind::LayoutIndicator) {
+                DrawLayoutIndicator(dc, RECT{x, rect.top, x + run.advanceWidth, rect.bottom}, run);
+                x += run.advanceWidth;
+                if (x >= rect.right) {
+                    break;
+                }
+                continue;
+            }
+
             if (run.text.empty()) {
                 continue;
             }
 
             SetTextColor(dc, run.color);
             ExtTextOutW(dc, x, y, ETO_CLIPPED, &rect, run.text.c_str(), static_cast<UINT>(run.text.size()), nullptr);
-            x += MeasureTextWidth(dc, run.text);
+            x += MeasureRunWidth(dc, run);
             if (x >= rect.right) {
                 break;
             }
