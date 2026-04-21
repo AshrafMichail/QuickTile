@@ -398,8 +398,8 @@ private:
     }
 
     int LayoutIndicatorWidth(HMONITOR monitor) const {
-        const int barHeight = BarHeightForMonitor(monitor);
-        return std::max(10, (barHeight * 4) / 5);
+        const int fontHeight = FontHeightForMonitor(monitor);
+        return std::max(10, fontHeight + std::max(4, fontHeight / 4));
     }
 
     static void AppendSeparator(std::vector<BarWindow::TextRun>& region) {
@@ -596,11 +596,12 @@ private:
     }
 
     static RECT CenteredIndicatorRect(const RECT& rect, int advanceWidth) {
-        const int availableHeight = std::max(6, static_cast<int>(rect.bottom - rect.top) - 8);
-        const int width = std::max(8, std::min(advanceWidth, availableHeight + std::max(2, availableHeight / 3)));
-        const int height = std::max(6, availableHeight);
+        const int availableHeight = std::max(6, static_cast<int>(rect.bottom - rect.top));
+        const int heightInset = std::max(1, availableHeight / 8);
+        const int height = std::max(6, availableHeight - heightInset);
+        const int width = std::max(8, std::min(advanceWidth, height + std::max(2, height / 4)));
         const int left = rect.left + std::max(0, (advanceWidth - width) / 2);
-        const int top = rect.top + std::max(0, (static_cast<int>(rect.bottom - rect.top) - height) / 2);
+        const int top = rect.top + std::max(0, (availableHeight - height) / 2);
         return RECT{left, top, left + width, top + height};
     }
 
@@ -708,7 +709,7 @@ private:
         const int y = static_cast<int>(rect.top) + std::max(0, (rectHeight - textHeight) / 2);
         for (const BarWindow::TextRun& run : runs) {
             if (run.kind == BarWindow::TextRun::Kind::LayoutIndicator) {
-                DrawLayoutIndicator(dc, RECT{x, rect.top, x + run.advanceWidth, rect.bottom}, run);
+                DrawLayoutIndicator(dc, RECT{x, y, x + run.advanceWidth, y + textHeight}, run);
                 x += run.advanceWidth;
                 if (x >= rect.right) {
                     break;
